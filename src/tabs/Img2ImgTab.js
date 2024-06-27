@@ -7,6 +7,7 @@ import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import FormControl from '@mui/material/FormControl';
 import FormLabel from '@mui/material/FormLabel';
+import ProgressIndicator from './ProgressIndicator';
 
 function Img2ImgTab() {
     const [isCVReady, setCVReady] = useState(false);
@@ -15,11 +16,13 @@ function Img2ImgTab() {
         inputImage, setInputImage,
         inputImageBase64, setInputImageBase64,
         maskImage, setMaskImage,
-        maskImageBase64, setMaskImageMaskBase64,
+        maskImageBase64, setMaskImageBase64,
         inputAnytestImage, setInputAnytestImage,
         inputAnytestImageBase64, setInputAnytestImageBase64,
         outputImage, setOutputImage
     } = useImages();
+
+    const [isGenerating, setIsGenerating] = useState(false);
 
     useEffect(() => {
         if (window.isCVReady) {
@@ -34,6 +37,30 @@ function Img2ImgTab() {
         }
     }, []);
 
+    useEffect(() => {
+        if (isGenerating) {
+            const fetchProgress = () => {
+                fetch('http://127.0.0.1:7861/sdapi/v1/progress')
+                    .then(response => response.json())
+                    .then(data => {
+                        setProgressData({
+                            progress: data.progress,
+                            sampling_step: data.state.sampling_step,
+                            sampling_steps: data.state.sampling_steps
+                        });
+                        if (data.progress >= 1) {
+                            setIsGenerating(false);
+                        }
+                    })
+                    .catch(error => console.error('Error fetching progress:', error));
+            };
+
+            let interval = setInterval(fetchProgress, 500);
+
+            return () => clearInterval(interval);
+        }
+    }, [isGenerating]);
+
     const [width, setWidth] = useState(null);
     const [height, setHeight] = useState(null);
     const [prompt, setPrompt] = useState('');
@@ -41,6 +68,15 @@ function Img2ImgTab() {
     const [imageFidelity, setImageFidelity] = useState(0.35);
     const [anytestValue, setAnytestValueValue] = useState('none');
     const [anytestFidelity, setAnytestFidelity] = useState(1);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [analyzeButtonText, setAnalyzeButtonText] = useState('Analyze Prompt');
+    const [generateButtonText, setGenerateButtonText] = useState('Generate');
+
+    const [progressData, setProgressData] = useState({
+        progress: 0,
+        sampling_step: 0,
+        sampling_steps: 0
+    });
 
     const handleAnytestValueChange = (event) => {
         setAnytestValueValue(event.target.value);
@@ -55,7 +91,6 @@ function Img2ImgTab() {
                 setBase64(base64String);
                 setImage(reader.result);
 
-
                 const img = new Image();
                 img.onload = () => {
                     console.log("Width:", img.width, "Height:", img.height);
@@ -68,16 +103,41 @@ function Img2ImgTab() {
         }
     };
 
-    const handleMaskImageChange = (event, setMaskImage, setMaskImageMaskBase64) => {
+    const handleMaskImageChange = (event, setMaskImage, setMaskImageBase64) => {
 
     }
 
-    const handleAnalyzePrompt = () => {
-        console.log("Analyzing prompt...");
-    };
+    const handleAnalyzePrompt = async () => {
+        if (!inputImage) {
+            alert('Please upload an image first.');
+            return;
+        }
 
-    const handleCreateMask = () => {
-        console.log("Creating mask...");
+        console.log("Analyzing prompt...");
+
+        setIsAnalyzing(true);
+        setAnalyzeButtonText('Analyzing...');
+
+        try {
+            const response = await fetch('http://127.0.0.1:7861/ai-assistant/prompt_analysis', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({image_base64: inputImageBase64})
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setPrompt(data.tags_list);  // 假设 setPrompt 是你的一个状态更新函数
+            } else {
+                throw new Error('Failed to analyze image');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Error: ' + error.message);  // 显示错误消息
+        } finally {
+            setIsAnalyzing(false);
+            setAnalyzeButtonText('Analyze Prompt');
+        }
     };
 
     const handleDownloadImage = () => {
@@ -89,24 +149,46 @@ function Img2ImgTab() {
     };
 
     const handleGenerate = () => {
-        const payload = buildPayload(prompt, negativePrompt, width, height, null, null, inputImageBase64, null, imageFidelity, "i2i");
+        if (!inputImage) {
+            alert('Please upload an image first.');
+            return;
+        }
+
+        setIsGenerating(true);
+        setGenerateButtonText('Generating...');
+
+        console.log("Generating...");
+
+        const payload = buildPayload(prompt, negativePrompt, width, height, null, null, inputImageBase64, maskImageBase64, imageFidelity, "i2i");
 
         console.log(payload);
 
-        fetch('http://127.0.0.1:7861/sdapi/v1/img2img', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: payload
-        })
-            .then(response => response.json())
-            .then(data => {
-                console.log("Response from server:", data);
+        try {
+            fetch('http://127.0.0.1:7861/sdapi/v1/img2img', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: payload
             })
-            .catch(error => {
-                console.error("Error sending data:", error);
-            });
+                .then(response => response.json())
+                .then(data => {
+                    const base64Image = data.images[0];
+                    const imageSrc = `data:image/jpeg;base64,${base64Image}`;
+                    setOutputImage(imageSrc);
+
+                    setIsGenerating(false);
+                    setGenerateButtonText('Generate');
+                })
+                .catch(error => {
+                    console.error("Error sending data:", error);
+                    setIsGenerating(false);
+                    setGenerateButtonText('Generate');
+                });
+        } catch (error) {
+            console.error(error);
+            alert('Error: ' + error.message);
+        }
     };
 
 
@@ -120,7 +202,7 @@ function Img2ImgTab() {
 
     const cv = window.cv;
 
-    function createMask() {
+    function createMask(event, setMaskImageBase64) {
         if (!inputImage) {
             alert('Please upload an image first.');
             return;
@@ -129,56 +211,74 @@ function Img2ImgTab() {
         const imgElement = document.createElement('img');
         imgElement.src = inputImage;
 
+
         imgElement.onload = () => {
             processMaskImage(imgElement).then(dataUrl => {
-                setMaskImage(dataUrl); // 更新状态以显示图像
+                const base64String = dataUrl.replace('data:', '').replace(/^.+,/, '');
+
+                setMaskImageBase64(base64String);
+
+                setMaskImage(dataUrl);
             });
         };
     }
 
     function processMaskImage(imgElement) {
         return new Promise(resolve => {
-            let img = cv.imread(imgElement);
-            let imgRGBA = new cv.Mat();
-            cv.cvtColor(img, imgRGBA, cv.COLOR_BGR2RGBA);
+            let src = cv.imread(imgElement);
+            let srcRGBA = new cv.Mat();
+            cv.cvtColor(src, srcRGBA, cv.COLOR_BGR2RGBA);
 
-            // 创建白色背景画布
-            let canvas = new cv.Mat(imgRGBA.rows, imgRGBA.cols, cv.CV_8UC4, new cv.Scalar(255, 255, 255, 255));
-            let imgWithBackground = new cv.Mat();
-            cv.bitwise_not(imgRGBA, imgWithBackground);
+            // 创建白色背景
+            let whiteBackground = new cv.Mat(srcRGBA.rows, srcRGBA.cols, cv.CV_8UC4, new cv.Scalar(255, 255, 255, 255));
+            let dst = new cv.Mat();
+            cv.bitwise_not(srcRGBA, dst);  // 应用反色以模拟 alpha 合成
 
-            // 将背景与图像合并
-            cv.bitwise_not(imgWithBackground, imgWithBackground);
-
-            // 转换为灰度图并二值化
+            // 转换到灰度并二值化
             let gray = new cv.Mat();
-            cv.cvtColor(imgWithBackground, gray, cv.COLOR_RGBA2GRAY, 0);
+            cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
             let binary = new cv.Mat();
-            cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
+            cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY);
 
-            // 找到并绘制轮廓
+            // 寻找轮廓
             let contours = new cv.MatVector();
             let hierarchy = new cv.Mat();
             cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-            let mask = cv.Mat.zeros(img.rows, img.cols, cv.CV_8UC3);
-            cv.drawContours(mask, contours, -1, new cv.Scalar(255, 255, 255), cv.FILLED);
 
-            // 将 mask 转换为可用的图像 URL
-            let maskCanvas = document.createElement("canvas");
-            cv.imshow(maskCanvas, mask);
-            resolve(maskCanvas.toDataURL());
+            // 寻找最大轮廓并绘制遮罩
+            let mask = new cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
+            let maxContourIdx = findLargestContour(contours);
+            cv.drawContours(mask, contours, maxContourIdx, new cv.Scalar(255, 255, 255), cv.FILLED);
 
-            // 释放资源
-            img.delete();
-            imgRGBA.delete();
-            canvas.delete();
-            imgWithBackground.delete();
+            // 创建遮罩的画布展示
+            let canvas = document.createElement('canvas');
+            cv.imshow(canvas, mask);
+            resolve(canvas.toDataURL('image/png'));
+
+            // 释放内存
+            src.delete();
+            srcRGBA.delete();
+            whiteBackground.delete();
+            dst.delete();
             gray.delete();
             binary.delete();
             contours.delete();
             hierarchy.delete();
             mask.delete();
         });
+    }
+
+    function findLargestContour(contours) {
+        let largestArea = 0;
+        let largestContourIdx = -1;
+        for (let i = 0; i < contours.size(); ++i) {
+            const contourArea = cv.contourArea(contours.get(i));
+            if (contourArea > largestArea) {
+                largestArea = contourArea;
+                largestContourIdx = i;
+            }
+        }
+        return largestContourIdx;
     }
 
     return (
@@ -198,12 +298,13 @@ function Img2ImgTab() {
                         <Typography variant="h6">Mask Image</Typography>
                         <input
                             type="file"
-                            onChange={(e) => handleMaskImageChange(e, setMaskImage, setMaskImageMaskBase64)}
+                            onChange={(e) => handleMaskImageChange(e, setMaskImage, setMaskImageBase64)}
                             style={{display: 'block', marginBottom: 8}}
                         />
                         {maskImage && <img src={maskImage} alt="Mask" style={{width: '100%', height: 'auto'}}/>}
                         <Box sx={{display: 'flex', justifyContent: 'space-between', marginTop: 1}}>
-                            <Button variant="outlined" onClick={createMask}>Create</Button>
+                            <Button variant="outlined"
+                                    onClick={(e) => createMask(e, setMaskImageBase64)}>Create</Button>
                         </Box>
                     </div>
                 </Box>
@@ -214,7 +315,8 @@ function Img2ImgTab() {
                         onChange={(e) => handleAnytestImageChange(e, setInputAnytestImage, setInputAnytestImageBase64)}
                         style={{display: 'block', marginBottom: 8}}
                     />
-                    {inputImage && <img src={inputImage} alt="Input" style={{width: '100%', height: 'auto'}}/>}
+                    {inputAnytestImage &&
+                        <img src={inputAnytestImage} alt="Input" style={{width: '100%', height: 'auto'}}/>}
                 </div>
                 <FormControl component="fieldset">
                     <FormLabel component="legend">Anytest</FormLabel>
@@ -230,8 +332,8 @@ function Img2ImgTab() {
                         <FormControlLabel value="anytestV4" control={<Radio/>} label="anytestV4"/>
                     </RadioGroup>
                 </FormControl>
-                <Button variant="outlined" onClick={handleAnalyzePrompt} style={{marginTop: 8}}>
-                    Analyze Prompt
+                <Button variant="outlined" onClick={handleAnalyzePrompt} style={{marginTop: 8}} disabled={isAnalyzing}>
+                    {analyzeButtonText}
                 </Button>
                 <TextField
                     label="Prompt"
@@ -273,7 +375,16 @@ function Img2ImgTab() {
                         valueLabelDisplay="auto"
                     />
                 </Box>
-                <Button variant="contained" onClick={handleGenerate}>Generate</Button>
+                <Button variant="outlined" onClick={handleGenerate} style={{marginTop: 8}} disabled={isGenerating}>
+                    {generateButtonText}
+                </Button>
+                <div>
+                    <ProgressIndicator
+                        progress={progressData.progress}
+                        currentStep={progressData.sampling_step}
+                        totalSteps={progressData.sampling_steps}
+                    />
+                </div>
             </Box>
             <Box sx={{flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2}}>
                 <Typography variant="h6">Output Image</Typography>

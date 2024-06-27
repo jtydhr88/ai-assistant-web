@@ -6,10 +6,7 @@ import NormalMapTab from './tabs/NormalMapTab';
 import LightTab from './tabs/LightTab';
 import AnimeShadowTab from './tabs/AnimeShadowTab';
 
-window.onOpenCVLoaded = () => {
-    console.log("OpenCV is ready to use.");
-    window.isCVReady = true;
-}
+
 
 function App() {
     const [value, setValue] = useState(0);

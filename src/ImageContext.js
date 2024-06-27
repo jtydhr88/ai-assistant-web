@@ -11,6 +11,7 @@ export const ImageProvider = ({ children }) => {
     const [inputImage, setInputImage] = useState(null);
     const [inputImageBase64, setInputImageBase64] = useState(null);
     const [maskImage, setMaskImage] = useState(null);
+    const [maskImageBase64, setMaskImageBase64] = useState(null);
     const [outputImage, setOutputImage] = useState(null);
 
     const value = {
@@ -20,6 +21,8 @@ export const ImageProvider = ({ children }) => {
         setInputImageBase64,
         maskImage,
         setMaskImage,
+        maskImageBase64,
+        setMaskImageBase64,
         outputImage,
         setOutputImage
     };
