@@ -50,6 +50,12 @@ function Img2ImgTab() {
                         });
                         if (data.progress >= 1) {
                             setIsGenerating(false);
+
+                            setProgressData({
+                                progress: 1,
+                                sampling_step: data.state.sampling_steps,
+                                sampling_steps: data.state.sampling_steps
+                            });
                         }
                     })
                     .catch(error => console.error('Error fetching progress:', error));
@@ -142,6 +148,13 @@ function Img2ImgTab() {
 
     const handleDownloadImage = () => {
         console.log("Downloading image...");
+
+        const link = document.createElement('a');
+        link.href = outputImage;
+        link.download = 'output-image.jpeg';  // 设置下载的文件名
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const handleAnytestImageChange = () => {
@@ -160,8 +173,6 @@ function Img2ImgTab() {
         console.log("Generating...");
 
         const payload = buildPayload(prompt, negativePrompt, width, height, null, null, inputImageBase64, maskImageBase64, imageFidelity, "i2i");
-
-        console.log(payload);
 
         try {
             fetch('http://127.0.0.1:7861/sdapi/v1/img2img', {
