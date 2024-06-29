@@ -5,15 +5,15 @@ import ProgressIndicator from '../components/ProgressIndicator';
 import PromptAnalyzer from '../components/PromptAnalyzer';
 import {executePrompt, removeColor, removeDuplicates} from "../utils/PromptUtils";
 import {baseGeneration, makeBaseImage, prepareImage, resizeImageAspectRatio} from "../utils/ImgUtils";
+import OutputPanel from "../components/OutputPanel";
 import InputPanel from "../components/InputPanel";
 
-function NormalMapTab() {
+function LineDrawingCutoutTab() {
 
     const {
-        normalMapInputImage, setNormalMapInputImage,
-        invertImage, setInvertImage,
-        normalMapOutputImage,
-        setNormalMapOutputImage,
+        lineDrawingCutoutInputImage, setLineDrawingCutoutInputImage,
+        flatLineImage, setFlatLineImage,
+        lineDrawingCutoutOutputImage, setLineDrawingCutoutOutputImage,
     } = useImages();
 
     const [isGenerating, setIsGenerating] = useState(false);
@@ -53,6 +53,7 @@ function NormalMapTab() {
     const [height, setHeight] = useState(null);
     const [negativePrompt, setNegativePrompt] = useState('lowres, error, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, blurry');
     const [linearFidelity, setLinearFidelity] = useState(1);
+    const [linearBold, setLinearBold] = useState(0);
     const [generateButtonText, setGenerateButtonText] = useState('Generate');
 
     const [progressData, setProgressData] = useState({
@@ -61,9 +62,9 @@ function NormalMapTab() {
         sampling_steps: 0
     });
 
-    function processInvert(inputImage) {
+    function processFlatLine(inputImage) {
         try {
-            fetch('http://127.0.0.1:7861/ai-assistant/invert_process', {
+            fetch('http://127.0.0.1:7861/ai-assistant/flatline_process', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -72,10 +73,10 @@ function NormalMapTab() {
             })
                 .then(response => response.json())
                 .then(data => {
-                    const base64Image = data["invert_img"];
+                    const base64Image = data["flatLine_img"];
                     const imageSrc = `data:image/jpeg;base64,${base64Image}`;
 
-                    setInvertImage(imageSrc)
+                    setFlatLineImage(imageSrc)
                 })
                 .catch(error => {
                     console.error("Error sending data:", error);
@@ -88,19 +89,8 @@ function NormalMapTab() {
         }
     }
 
-    const handleDownloadImage = () => {
-        console.log("Downloading image...");
-
-        const link = document.createElement('a');
-        link.href = normalMapOutputImage;
-        link.download = 'output-image.jpeg';  // 设置下载的文件名
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
     const handleGenerate = async () => {
-        if (!normalMapInputImage) {
+        if (!lineDrawingCutoutInputImage) {
             alert('Please upload an image first.');
             return;
         }
@@ -110,15 +100,17 @@ function NormalMapTab() {
 
         console.log("Generating...");
 
-        let finalPrompt = "masterpiece, best quality, normal map, <lora:sdxl-testlora-normalmap_04b_dim32:1.2>" + prompt;
+        const lineart = 1 - linearBold;
 
-        const executeTags = ["monochrome", "greyscale", "lineart", "white background", "sketch", "transparent background"]
+        let finalPrompt = "masterpiece, best quality, <lora:sdxl_BWLine:" + lineart + ">, <lora:sdxl_BW_bold_Line:" + linearBold + ">, monochrome, lineart, white background, " + prompt;
+
+        const executeTags = ["sketch", "transparent background"]
 
         finalPrompt = executePrompt(executeTags, finalPrompt);
         finalPrompt = removeDuplicates(finalPrompt);
         finalPrompt = removeColor(finalPrompt);
 
-        let baseImage = await makeBaseImage(normalMapInputImage);
+        let baseImage = await makeBaseImage(lineDrawingCutoutInputImage);
 
         let resizeBaseImage = await resizeImageAspectRatio(baseImage)
 
@@ -127,7 +119,7 @@ function NormalMapTab() {
 
         const imageFidelity = 1.0;
 
-        const cn_args = makeCNArgs(prepareImage(invertImage), linearFidelity);
+        const cn_args = makeCNArgs(prepareImage(flatLineImage), linearFidelity);
 
         const override_settings = {};
         override_settings["CLIP_stop_at_last_layers"] = 2
@@ -165,7 +157,7 @@ function NormalMapTab() {
                 .then(data => {
                     const base64Image = data.images[0];
                     const imageSrc = `data:image/jpeg;base64,${base64Image}`;
-                    setNormalMapOutputImage(imageSrc);
+                    setLineDrawingCutoutOutputImage(imageSrc);
 
                     setIsGenerating(false);
                     setGenerateButtonText('Generate');
@@ -181,9 +173,9 @@ function NormalMapTab() {
         }
     };
 
-    function makeCNArgs(invertImage, normalMapFidelity) {
+    function makeCNArgs(flatLineImage, lineDrawingCutoutFidelity) {
         const unit1 = {
-            "image": invertImage,
+            "image": flatLineImage,
             "control_mode": "Balanced",
             "enabled": "True",
             "guidance_end": 1,
@@ -191,35 +183,30 @@ function NormalMapTab() {
             "pixel_perfect": "True",
             "processor_res": 512,
             "resize_mode": "Just Resize",
-            "weight": normalMapFidelity,
+            "weight": lineDrawingCutoutFidelity,
             "module": "None",
-            "model": "Kataragi_lineartXL-lora128 [0598262f]",
+            "model": "controlnet852A_veryhard [8a1dc920]",
             "hr_option": "Both"
         };
 
         return [unit1]
     }
 
-
-    const handleTransferToNormalMap = () => {
-        console.log("Transferring to NormalMap tab...");
-    };
-
     return (
         <Box sx={{display: 'flex', gap: 2}}>
             <Box sx={{flex: 1, display: 'flex', flexDirection: 'column', gap: 2}}>
                 <Box sx={{display: 'flex', gap: 2}}>
                     <div style={{width: '50%'}}>
-                        <InputPanel inputImage={normalMapInputImage}
-                                    setInputImage={setNormalMapInputImage}
+                        <InputPanel inputImage={lineDrawingCutoutInputImage}
+                                    setInputImage={setLineDrawingCutoutInputImage}
                                     setHeight={setHeight} setWidth={setWidth}
-                                    postProcess={processInvert}
+                                    postProcess={processFlatLine}
                         />
                     </div>
                 </Box>
 
                 <PromptAnalyzer
-                    inputImage={normalMapInputImage}
+                    inputImage={lineDrawingCutoutInputImage}
                     prompt={prompt} setPrompt={setPrompt} negativePrompt={negativePrompt}
                     setNegativePrompt={setNegativePrompt}/>
 
@@ -234,9 +221,22 @@ function NormalMapTab() {
                         valueLabelDisplay="auto"
                     />
                 </Box>
+                <Box sx={{display: 'flex', alignItems: 'center', gap: 2}}>
+                    <Typography>Linear Bold</Typography>
+                    <Slider
+                        value={linearBold}
+                        onChange={(e, newValue) => setLinearBold(newValue)}
+                        step={0.01}
+                        min={0}
+                        max={1}
+                        valueLabelDisplay="auto"
+                    />
+                </Box>
+
                 <Button variant="outlined" onClick={handleGenerate} style={{marginTop: 8}} disabled={isGenerating}>
                     {generateButtonText}
                 </Button>
+
                 <div>
                     <ProgressIndicator
                         progress={progressData.progress}
@@ -245,16 +245,10 @@ function NormalMapTab() {
                     />
                 </div>
             </Box>
-            <Box sx={{flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2}}>
-                <Typography variant="h6">Output Image</Typography>
-                {normalMapOutputImage &&
-                    <img src={normalMapOutputImage} alt="Output" style={{width: '300px', height: 'auto'}}/>}
-                <Button variant="contained" onClick={handleDownloadImage}>Download</Button>
-                <Button variant="contained" onClick={handleTransferToNormalMap}>Transfer to NormalMap
-                    Tab</Button>
-            </Box>
+
+            <OutputPanel outputImage={lineDrawingCutoutOutputImage}/>
         </Box>
     );
 }
 
-export default NormalMapTab;
+export default LineDrawingCutoutTab;

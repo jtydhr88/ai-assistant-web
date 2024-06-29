@@ -5,6 +5,7 @@ import LineartTab from './tabs/LineartTab';
 import NormalMapTab from './tabs/NormalMapTab';
 import LightTab from './tabs/LightTab';
 import AnimeShadowTab from './tabs/AnimeShadowTab';
+import LineDrawingCutoutTab from "./tabs/LineDrawingCutoutTab";
 
 
 
@@ -21,6 +22,7 @@ function App() {
                 <Tabs value={value} onChange={handleChange} aria-label="basic tabs example">
                     <Tab label="img2img" />
                     <Tab label="Lineart" />
+                    <Tab label="LineDrawingCutoutTab" />
                     <Tab label="Normal Map" />
                     <Tab label="Light" />
                     <Tab label="Anime Shadow" />
@@ -28,9 +30,10 @@ function App() {
             </Box>
             {value === 0 && <Img2ImgTab />}
             {value === 1 && <LineartTab />}
-            {value === 2 && <NormalMapTab />}
-            {value === 3 && <LightTab />}
-            {value === 4 && <AnimeShadowTab />}
+            {value === 2 && <LineDrawingCutoutTab />}
+            {value === 3 && <NormalMapTab />}
+            {value === 4 && <LightTab />}
+            {value === 5 && <AnimeShadowTab />}
         </Box>
     );
 }

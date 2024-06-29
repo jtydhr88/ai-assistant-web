@@ -7,22 +7,23 @@ import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import FormControl from '@mui/material/FormControl';
 import FormLabel from '@mui/material/FormLabel';
-import ProgressIndicator from './ProgressIndicator';
+import ProgressIndicator from '../components/ProgressIndicator';
+import PromptAnalyzer from '../components/PromptAnalyzer';
+import {processMaskImage} from "../utils/OpenCVUtils";
+import {prepareImage} from "../utils/ImgUtils";
+import OutputPanel from "../components/OutputPanel";
+import InputPanel from "../components/InputPanel";
 
 function Img2ImgTab() {
     const [isCVReady, setCVReady] = useState(false);
 
     const {
-        inputImage, setInputImage,
-        inputImageBase64, setInputImageBase64,
+        img2imgInputImage, setImg2imgInputImage,
         maskImage, setMaskImage,
-        maskImageBase64, setMaskImageBase64,
         inputAnytestImage, setInputAnytestImage,
-        inputAnytestImageBase64, setInputAnytestImageBase64,
-        outputImage, setOutputImage
+        img2imgOutputImage, setImg2imgOutputImage
     } = useImages();
 
-    const [isGenerating, setIsGenerating] = useState(false);
 
     useEffect(() => {
         if (window.isCVReady) {
@@ -36,6 +37,8 @@ function Img2ImgTab() {
             }, 100);
         }
     }, []);
+
+    const [isGenerating, setIsGenerating] = useState(false);
 
     useEffect(() => {
         if (isGenerating) {
@@ -67,15 +70,13 @@ function Img2ImgTab() {
         }
     }, [isGenerating]);
 
+    const [prompt, setPrompt] = useState(null);
     const [width, setWidth] = useState(null);
     const [height, setHeight] = useState(null);
-    const [prompt, setPrompt] = useState('');
     const [negativePrompt, setNegativePrompt] = useState('lowres, error, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, blurry');
     const [imageFidelity, setImageFidelity] = useState(0.35);
     const [anytestValue, setAnytestValueValue] = useState('none');
     const [anytestFidelity, setAnytestFidelity] = useState(1);
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [analyzeButtonText, setAnalyzeButtonText] = useState('Analyze Prompt');
     const [generateButtonText, setGenerateButtonText] = useState('Generate');
 
     const [progressData, setProgressData] = useState({
@@ -88,81 +89,17 @@ function Img2ImgTab() {
         setAnytestValueValue(event.target.value);
     };
 
-    const handleImageChange = (event, setImage, setBase64) => {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64String = reader.result.replace('data:', '').replace(/^.+,/, '');
-                setBase64(base64String);
-                setImage(reader.result);
-
-                const img = new Image();
-                img.onload = () => {
-                    console.log("Width:", img.width, "Height:", img.height);
-                    setWidth(img.width);
-                    setHeight(img.height);
-                };
-                img.src = reader.result;
-            };
-            reader.readAsDataURL(file);
-        }
-    };
 
     const handleMaskImageChange = (event, setMaskImage, setMaskImageBase64) => {
 
     }
-
-    const handleAnalyzePrompt = async () => {
-        if (!inputImage) {
-            alert('Please upload an image first.');
-            return;
-        }
-
-        console.log("Analyzing prompt...");
-
-        setIsAnalyzing(true);
-        setAnalyzeButtonText('Analyzing...');
-
-        try {
-            const response = await fetch('http://127.0.0.1:7861/ai-assistant/prompt_analysis', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({image_base64: inputImageBase64})
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setPrompt(data.tags_list);  // 假设 setPrompt 是你的一个状态更新函数
-            } else {
-                throw new Error('Failed to analyze image');
-            }
-        } catch (error) {
-            console.error(error);
-            alert('Error: ' + error.message);  // 显示错误消息
-        } finally {
-            setIsAnalyzing(false);
-            setAnalyzeButtonText('Analyze Prompt');
-        }
-    };
-
-    const handleDownloadImage = () => {
-        console.log("Downloading image...");
-
-        const link = document.createElement('a');
-        link.href = outputImage;
-        link.download = 'output-image.jpeg';  // 设置下载的文件名
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
 
     const handleAnytestImageChange = () => {
         console.log("handleAnytestImageChange...");
     };
 
     const handleGenerate = () => {
-        if (!inputImage) {
+        if (!img2imgInputImage) {
             alert('Please upload an image first.');
             return;
         }
@@ -172,7 +109,7 @@ function Img2ImgTab() {
 
         console.log("Generating...");
 
-        const payload = buildPayload(prompt, negativePrompt, width, height, null, null, inputImageBase64, maskImageBase64, imageFidelity, "i2i");
+        const payload = buildPayload(prompt, negativePrompt, width, height, null, null, prepareImage(img2imgInputImage), prepareImage(maskImage), imageFidelity, "i2i");
 
         try {
             fetch('http://127.0.0.1:7861/sdapi/v1/img2img', {
@@ -186,7 +123,7 @@ function Img2ImgTab() {
                 .then(data => {
                     const base64Image = data.images[0];
                     const imageSrc = `data:image/jpeg;base64,${base64Image}`;
-                    setOutputImage(imageSrc);
+                    setImg2imgOutputImage(imageSrc);
 
                     setIsGenerating(false);
                     setGenerateButtonText('Generate');
@@ -202,11 +139,6 @@ function Img2ImgTab() {
         }
     };
 
-
-    const handleTransferToLineart = () => {
-        console.log("Transferring to Lineart tab...");
-    };
-
     if (!isCVReady) {
         return <div>Loading OpenCV...</div>;
     }
@@ -214,82 +146,19 @@ function Img2ImgTab() {
     const cv = window.cv;
 
     function createMask(event, setMaskImageBase64) {
-        if (!inputImage) {
+        if (!img2imgInputImage) {
             alert('Please upload an image first.');
             return;
         }
 
         const imgElement = document.createElement('img');
-        imgElement.src = inputImage;
-
+        imgElement.src = img2imgInputImage;
 
         imgElement.onload = () => {
-            processMaskImage(imgElement).then(dataUrl => {
-                const base64String = dataUrl.replace('data:', '').replace(/^.+,/, '');
-
-                setMaskImageBase64(base64String);
-
+            processMaskImage(cv, imgElement).then(dataUrl => {
                 setMaskImage(dataUrl);
             });
         };
-    }
-
-    function processMaskImage(imgElement) {
-        return new Promise(resolve => {
-            let src = cv.imread(imgElement);
-            let srcRGBA = new cv.Mat();
-            cv.cvtColor(src, srcRGBA, cv.COLOR_BGR2RGBA);
-
-            // 创建白色背景
-            let whiteBackground = new cv.Mat(srcRGBA.rows, srcRGBA.cols, cv.CV_8UC4, new cv.Scalar(255, 255, 255, 255));
-            let dst = new cv.Mat();
-            cv.bitwise_not(srcRGBA, dst);  // 应用反色以模拟 alpha 合成
-
-            // 转换到灰度并二值化
-            let gray = new cv.Mat();
-            cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
-            let binary = new cv.Mat();
-            cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY);
-
-            // 寻找轮廓
-            let contours = new cv.MatVector();
-            let hierarchy = new cv.Mat();
-            cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-            // 寻找最大轮廓并绘制遮罩
-            let mask = new cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
-            let maxContourIdx = findLargestContour(contours);
-            cv.drawContours(mask, contours, maxContourIdx, new cv.Scalar(255, 255, 255), cv.FILLED);
-
-            // 创建遮罩的画布展示
-            let canvas = document.createElement('canvas');
-            cv.imshow(canvas, mask);
-            resolve(canvas.toDataURL('image/png'));
-
-            // 释放内存
-            src.delete();
-            srcRGBA.delete();
-            whiteBackground.delete();
-            dst.delete();
-            gray.delete();
-            binary.delete();
-            contours.delete();
-            hierarchy.delete();
-            mask.delete();
-        });
-    }
-
-    function findLargestContour(contours) {
-        let largestArea = 0;
-        let largestContourIdx = -1;
-        for (let i = 0; i < contours.size(); ++i) {
-            const contourArea = cv.contourArea(contours.get(i));
-            if (contourArea > largestArea) {
-                largestArea = contourArea;
-                largestContourIdx = i;
-            }
-        }
-        return largestContourIdx;
     }
 
     return (
@@ -297,25 +166,20 @@ function Img2ImgTab() {
             <Box sx={{flex: 1, display: 'flex', flexDirection: 'column', gap: 2}}>
                 <Box sx={{display: 'flex', gap: 2}}>
                     <div style={{width: '50%'}}>
-                        <Typography variant="h6">Input Image</Typography>
-                        <input
-                            type="file"
-                            onChange={(e) => handleImageChange(e, setInputImage, setInputImageBase64)}
-                            style={{display: 'block', marginBottom: 8}}
-                        />
-                        {inputImage && <img src={inputImage} alt="Input" style={{width: '100%', height: 'auto'}}/>}
+                        <InputPanel inputImage={img2imgInputImage} setInputImage={setImg2imgInputImage}
+                                    setHeight={setHeight} setWidth={setWidth}/>
                     </div>
                     <div style={{width: '50%'}}>
                         <Typography variant="h6">Mask Image</Typography>
                         <input
                             type="file"
-                            onChange={(e) => handleMaskImageChange(e, setMaskImage, setMaskImageBase64)}
+                            onChange={(e) => handleMaskImageChange(e, setMaskImage)}
                             style={{display: 'block', marginBottom: 8}}
                         />
                         {maskImage && <img src={maskImage} alt="Mask" style={{width: '100%', height: 'auto'}}/>}
                         <Box sx={{display: 'flex', justifyContent: 'space-between', marginTop: 1}}>
                             <Button variant="outlined"
-                                    onClick={(e) => createMask(e, setMaskImageBase64)}>Create</Button>
+                                    onClick={(e) => createMask(e, setMaskImage)}>Create</Button>
                         </Box>
                     </div>
                 </Box>
@@ -323,7 +187,7 @@ function Img2ImgTab() {
                     <Typography variant="h6">Anytest Image</Typography>
                     <input
                         type="file"
-                        onChange={(e) => handleAnytestImageChange(e, setInputAnytestImage, setInputAnytestImageBase64)}
+                        onChange={(e) => handleAnytestImageChange(e, setInputAnytestImage)}
                         style={{display: 'block', marginBottom: 8}}
                     />
                     {inputAnytestImage &&
@@ -343,27 +207,11 @@ function Img2ImgTab() {
                         <FormControlLabel value="anytestV4" control={<Radio/>} label="anytestV4"/>
                     </RadioGroup>
                 </FormControl>
-                <Button variant="outlined" onClick={handleAnalyzePrompt} style={{marginTop: 8}} disabled={isAnalyzing}>
-                    {analyzeButtonText}
-                </Button>
-                <TextField
-                    label="Prompt"
-                    fullWidth
-                    multiline
-                    maxRows={4}
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    variant="outlined"
-                />
-                <TextField
-                    label="Negative Prompt"
-                    fullWidth
-                    multiline
-                    maxRows={4}
-                    value={negativePrompt}
-                    onChange={(e) => setNegativePrompt(e.target.value)}
-                    variant="outlined"
-                />
+
+                <PromptAnalyzer inputImage={img2imgInputImage}
+                                prompt={prompt} setPrompt={setPrompt} negativePrompt={negativePrompt}
+                                setNegativePrompt={setNegativePrompt}/>
+
                 <Box sx={{display: 'flex', alignItems: 'center', gap: 2}}>
                     <Typography>Image Fidelity</Typography>
                     <Slider
@@ -397,12 +245,7 @@ function Img2ImgTab() {
                     />
                 </div>
             </Box>
-            <Box sx={{flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2}}>
-                <Typography variant="h6">Output Image</Typography>
-                {outputImage && <img src={outputImage} alt="Output" style={{width: '300px', height: 'auto'}}/>}
-                <Button variant="contained" onClick={handleDownloadImage}>Download</Button>
-                <Button variant="contained" onClick={handleTransferToLineart}>Transfer to Lineart Tab</Button>
-            </Box>
+            <OutputPanel outputImage={img2imgOutputImage}/>
         </Box>
     );
 }

@@ -1,4 +1,8 @@
 function removeDuplicates(basePrompt) {
+    if (!basePrompt) {
+        return;
+    }
+
     const promptList = basePrompt.split(", ");
     const seen = new Set();
     const uniqueTags = [];
@@ -15,6 +19,10 @@ function removeDuplicates(basePrompt) {
 }
 
 function removeColor(basePrompt) {
+    if (!basePrompt) {
+        return;
+    }
+
     const promptList = basePrompt.split(", ");
     const colorList = ["pink", "red", "orange", "brown", "yellow", "green", "blue", "purple", "blonde", "colored skin", "white hair"];
 
@@ -26,6 +34,10 @@ function removeColor(basePrompt) {
 }
 
 function executePrompt(executeTags, basePrompt) {
+    if (!basePrompt) {
+        return;
+    }
+
     const promptList = basePrompt.split(", ");
     const filteredTags = promptList.filter(tag =>
         !executeTags.includes(tag)
