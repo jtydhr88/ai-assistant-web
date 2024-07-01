@@ -1,7 +1,7 @@
 import React from 'react';
 import {Typography} from '@mui/material';
 
-function InputPanel({inputImage, setInputImage, setWidth, setHeight, postProcess}) {
+function InputPanel({inputImage, setInputImage, setWidth, setHeight, postProcess, label}) {
 
     const handleImageChange = (event, setImage, setWidth, setHeight) => {
         const file = event.target.files[0];
@@ -30,8 +30,8 @@ function InputPanel({inputImage, setInputImage, setWidth, setHeight, postProcess
     };
 
     return (
-        <div style={{width: '50%'}}>
-            <Typography variant="h6">Input Image</Typography>
+        <div>
+            <Typography variant="h6">{label}</Typography>
             <input
                 type="file"
                 onChange={(e) => handleImageChange(e, setInputImage, setWidth, setHeight)}

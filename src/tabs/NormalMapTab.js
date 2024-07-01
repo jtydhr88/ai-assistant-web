@@ -3,15 +3,17 @@ import {Box, Button, Slider, Typography} from '@mui/material';
 import {useImages} from '../ImageContext';
 import ProgressIndicator from '../components/ProgressIndicator';
 import PromptAnalyzer from '../components/PromptAnalyzer';
-import {executePrompt, removeColor, removeDuplicates} from "../utils/PromptUtils";
+import {buildControlNetArgs, executePrompt, removeColor, removeDuplicates} from "../utils/PromptUtils";
 import {baseGeneration, makeBaseImage, prepareImage, resizeImageAspectRatio} from "../utils/ImgUtils";
 import InputPanel from "../components/InputPanel";
+import OutputPanel from "../components/OutputPanel";
+import {sendRequest} from "../utils/RequestApi";
 
 function NormalMapTab() {
 
     const {
         normalMapInputImage, setNormalMapInputImage,
-        invertImage, setInvertImage,
+        normalMapInvertImage, setNormalMapInvertImage,
         normalMapOutputImage,
         setNormalMapOutputImage,
     } = useImages();
@@ -62,42 +64,37 @@ function NormalMapTab() {
     });
 
     function processInvert(inputImage) {
-        try {
-            fetch('http://127.0.0.1:7861/ai-assistant/invert_process', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({image_base64: prepareImage(inputImage)})
-            })
-                .then(response => response.json())
-                .then(data => {
-                    const base64Image = data["invert_img"];
-                    const imageSrc = `data:image/jpeg;base64,${base64Image}`;
+        const payload = JSON.stringify({image_base64: prepareImage(inputImage)});
 
-                    setInvertImage(imageSrc)
-                })
-                .catch(error => {
-                    console.error("Error sending data:", error);
-                    setIsGenerating(false);
-                    setGenerateButtonText('Generate');
-                });
-        } catch (error) {
-            console.error(error);
-            alert('Error: ' + error.message);
-        }
+        sendRequest('http://127.0.0.1:7861/ai-assistant/invert_process', 'POST', payload,
+            (data) => {
+                const base64Image = data["invert_img"];
+                const imageSrc = `data:image/jpeg;base64,${base64Image}`;
+
+                setNormalMapInvertImage(imageSrc)
+            }, () => {
+                postGenerateError();
+            })
     }
 
-    const handleDownloadImage = () => {
-        console.log("Downloading image...");
+    function postGenerateSuccess(data) {
+        const base64Image = data.images[0];
+        const imageSrc = `data:image/jpeg;base64,${base64Image}`;
+        setNormalMapOutputImage(imageSrc);
 
-        const link = document.createElement('a');
-        link.href = normalMapOutputImage;
-        link.download = 'output-image.jpeg';  // 设置下载的文件名
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
+        updateGenerateStatus(false, 'Generate', "Generate success");
+    }
+
+    function postGenerateError() {
+        updateGenerateStatus(false, 'Generate', "Generate failed");
+    }
+
+    function updateGenerateStatus(isGenerating, generateButtonText, consoleMessage) {
+        setIsGenerating(isGenerating);
+        setGenerateButtonText(generateButtonText);
+
+        console.log(consoleMessage);
+    }
 
     const handleGenerate = async () => {
         if (!normalMapInputImage) {
@@ -105,10 +102,7 @@ function NormalMapTab() {
             return;
         }
 
-        setIsGenerating(true);
-        setGenerateButtonText('Generating...');
-
-        console.log("Generating...");
+        updateGenerateStatus(true, 'Generating...', "Generating...");
 
         let finalPrompt = "masterpiece, best quality, normal map, <lora:sdxl-testlora-normalmap_04b_dim32:1.2>" + prompt;
 
@@ -127,7 +121,9 @@ function NormalMapTab() {
 
         const imageFidelity = 1.0;
 
-        const cn_args = makeCNArgs(prepareImage(invertImage), linearFidelity);
+        const cn_args = [
+            buildControlNetArgs(prepareImage(normalMapInvertImage), linearFidelity, "Kataragi_lineartXL-lora128 [0598262f]")
+        ]
 
         const override_settings = {};
         override_settings["CLIP_stop_at_last_layers"] = 2
@@ -149,36 +145,14 @@ function NormalMapTab() {
             "override_settings": override_settings,
             "override_settings_restore_afterwards": "False"
         }
+
         if (cn_args) {
             payload["alwayson_scripts"] = {"ControlNet": {"args": cn_args}}
         }
 
-        try {
-            fetch('http://127.0.0.1:7861/sdapi/v1/img2img', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            })
-                .then(response => response.json())
-                .then(data => {
-                    const base64Image = data.images[0];
-                    const imageSrc = `data:image/jpeg;base64,${base64Image}`;
-                    setNormalMapOutputImage(imageSrc);
+        console.log(payload)
 
-                    setIsGenerating(false);
-                    setGenerateButtonText('Generate');
-                })
-                .catch(error => {
-                    console.error("Error sending data:", error);
-                    setIsGenerating(false);
-                    setGenerateButtonText('Generate');
-                });
-        } catch (error) {
-            console.error(error);
-            alert('Error: ' + error.message);
-        }
+        sendRequest('http://127.0.0.1:7861/sdapi/v1/img2img', 'POST', JSON.stringify(payload), postGenerateSuccess, postGenerateError)
     };
 
     function makeCNArgs(invertImage, normalMapFidelity) {
@@ -200,11 +174,6 @@ function NormalMapTab() {
         return [unit1]
     }
 
-
-    const handleTransferToNormalMap = () => {
-        console.log("Transferring to NormalMap tab...");
-    };
-
     return (
         <Box sx={{display: 'flex', gap: 2}}>
             <Box sx={{flex: 1, display: 'flex', flexDirection: 'column', gap: 2}}>
@@ -213,7 +182,7 @@ function NormalMapTab() {
                         <InputPanel inputImage={normalMapInputImage}
                                     setInputImage={setNormalMapInputImage}
                                     setHeight={setHeight} setWidth={setWidth}
-                                    postProcess={processInvert}
+                                    postProcess={processInvert} label="Input Image"
                         />
                     </div>
                 </Box>
@@ -234,25 +203,19 @@ function NormalMapTab() {
                         valueLabelDisplay="auto"
                     />
                 </Box>
+
                 <Button variant="outlined" onClick={handleGenerate} style={{marginTop: 8}} disabled={isGenerating}>
                     {generateButtonText}
                 </Button>
-                <div>
-                    <ProgressIndicator
-                        progress={progressData.progress}
-                        currentStep={progressData.sampling_step}
-                        totalSteps={progressData.sampling_steps}
-                    />
-                </div>
+
+                <ProgressIndicator
+                    progress={progressData.progress}
+                    currentStep={progressData.sampling_step}
+                    totalSteps={progressData.sampling_steps}
+                />
             </Box>
-            <Box sx={{flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2}}>
-                <Typography variant="h6">Output Image</Typography>
-                {normalMapOutputImage &&
-                    <img src={normalMapOutputImage} alt="Output" style={{width: '300px', height: 'auto'}}/>}
-                <Button variant="contained" onClick={handleDownloadImage}>Download</Button>
-                <Button variant="contained" onClick={handleTransferToNormalMap}>Transfer to NormalMap
-                    Tab</Button>
-            </Box>
+
+            <OutputPanel outputImage={normalMapOutputImage}/>
         </Box>
     );
 }

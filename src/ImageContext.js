@@ -10,66 +10,65 @@ export function useImages() {
 export const ImageProvider = ({children}) => {
     // img2img tab
     const [img2imgInputImage, setImg2imgInputImage] = useState(null);
-    const [img2imgInputImageBase64, setImg2imgInputImageBase64] = useState(null);
     const [maskImage, setMaskImage] = useState(null);
-    const [maskImageBase64, setMaskImageBase64] = useState(null);
     const [img2imgOutputImage, setImg2imgOutputImage] = useState(null);
 
     // lineart tab
     const [lineartInputImage, setLineartInputImage] = useState(null);
-    const [lineartInputImageBase64, setLineartInputImageBase64] = useState(null);
     const [cannyImage, setCannyImage] = useState(null);
-    const [cannyImageBase64, setCannyImageBase64] = useState(null);
     const [lineartOutputImage, setLineartOutputImage] = useState(null);
 
-    // lineart tab
+    // line drawing cutout tab
     const [lineDrawingCutoutInputImage, setLineDrawingCutoutInputImage] = useState(null);
-    const [lineDrawingCutoutInputImageBase64, setLineDrawingCutoutInputImageBase64] = useState(null);
     const [flatLineImage, setFlatLineImage] = useState(null);
-    const [flatLineImageBase64, setFlatLineImageBase64] = useState(null);
     const [lineDrawingCutoutOutputImage, setLineDrawingCutoutOutputImage] = useState(null);
 
+    // normal map tab
     const [normalMapInputImage, setNormalMapInputImage] = useState(null);
-    const [normalMapInputImageBase64, setNormalMapInputImageBase64] = useState(null);
-    const [invertImage, setInvertImage] = useState(null);
-    const [invertImageBase64, setInvertImageBase64] = useState(null);
+    const [normalMapInvertImage, setNormalMapInvertImage] = useState(null);
     const [normalMapOutputImage, setNormalMapOutputImage] = useState(null);
+
+    // light tab
+    const [lightInputImage, setLightInputImage] = useState(null);
+    const [lightOutputImage, setLightOutputImage] = useState(null);
+
+    // anime shadow tab
+    const [animeShadowLineartInputImage, setAnimeShadowLineartInputImage] = useState(null);
+    const [animeShadowShadowInputImage, setAnimeShadowShadowInputImage] = useState(null);
+    const [animeShadowInvertImage, setAnimeShadowInvertImage] = useState(null);
+    const [animeShadowOutputImage, setAnimeShadowOutputImage] = useState(null);
 
 
     const value = {
         img2imgInputImage,
         setImg2imgInputImage,
-        img2imgInputImageBase64,
-        setImg2imgInputImageBase64,
         maskImage,
         setMaskImage,
-        maskImageBase64,
-        setMaskImageBase64,
         img2imgOutputImage,
         setImg2imgOutputImage,
 
         lineartInputImage,
         setLineartInputImage,
-        lineartInputImageBase64,
-        setLineartInputImageBase64,
         cannyImage,
         setCannyImage,
-        cannyImageBase64,
-        setCannyImageBase64,
         lineartOutputImage,
         setLineartOutputImage,
 
         lineDrawingCutoutInputImage, setLineDrawingCutoutInputImage,
-        lineDrawingCutoutInputImageBase64, setLineDrawingCutoutInputImageBase64,
         flatLineImage, setFlatLineImage,
-        flatLineImageBase64, setFlatLineImageBase64,
         lineDrawingCutoutOutputImage, setLineDrawingCutoutOutputImage,
 
         normalMapInputImage, setNormalMapInputImage,
-        normalMapInputImageBase64, setNormalMapInputImageBase64,
-        invertImage, setInvertImage,
-        invertImageBase64, setInvertImageBase64,
+        normalMapInvertImage, setNormalMapInvertImage,
         normalMapOutputImage, setNormalMapOutputImage,
+
+        lightInputImage, setLightInputImage,
+        lightOutputImage, setLightOutputImage,
+
+        animeShadowLineartInputImage, setAnimeShadowLineartInputImage,
+        animeShadowShadowInputImage, setAnimeShadowShadowInputImage,
+        animeShadowInvertImage, setAnimeShadowInvertImage,
+        animeShadowOutputImage, setAnimeShadowOutputImage
     };
 
     return <ImageContext.Provider value={value}>{children}</ImageContext.Provider>;

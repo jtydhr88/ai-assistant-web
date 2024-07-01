@@ -1,7 +1,7 @@
 import React, {useState, useEffect} from 'react';
-import {Box, Button, TextField, Slider, Typography} from '@mui/material';
+import {Box, Button, Typography} from '@mui/material';
 import {useImages} from '../ImageContext';
-import {buildPayload} from "../utils/RequestApi";
+import {buildPayload, sendRequest} from "../utils/RequestApi";
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -9,10 +9,11 @@ import FormControl from '@mui/material/FormControl';
 import FormLabel from '@mui/material/FormLabel';
 import ProgressIndicator from '../components/ProgressIndicator';
 import PromptAnalyzer from '../components/PromptAnalyzer';
-import {processMaskImage} from "../utils/OpenCVUtils";
 import {prepareImage} from "../utils/ImgUtils";
 import OutputPanel from "../components/OutputPanel";
 import InputPanel from "../components/InputPanel";
+import MaskPanel from "../components/MaskPanel";
+import Img2ImgConfigPanel from "../components/Img2ImgConfigPanel";
 
 function Img2ImgTab() {
     const [isCVReady, setCVReady] = useState(false);
@@ -23,7 +24,6 @@ function Img2ImgTab() {
         inputAnytestImage, setInputAnytestImage,
         img2imgOutputImage, setImg2imgOutputImage
     } = useImages();
-
 
     useEffect(() => {
         if (window.isCVReady) {
@@ -51,7 +51,7 @@ function Img2ImgTab() {
                             sampling_step: data.state.sampling_step,
                             sampling_steps: data.state.sampling_steps
                         });
-                        if (data.progress >= 1) {
+                        if (data.progress >= 1 || data.state.sampling_step === data.state.sampling_steps) {
                             setIsGenerating(false);
 
                             setProgressData({
@@ -94,9 +94,28 @@ function Img2ImgTab() {
 
     }
 
+    function updateGenerateStatus(isGenerating, generateButtonText, consoleMessage) {
+        setIsGenerating(isGenerating);
+        setGenerateButtonText(generateButtonText);
+
+        console.log(consoleMessage);
+    }
+
     const handleAnytestImageChange = () => {
         console.log("handleAnytestImageChange...");
     };
+
+    function postGenerateSuccess(data) {
+        const base64Image = data.images[0];
+        const imageSrc = `data:image/jpeg;base64,${base64Image}`;
+        setImg2imgOutputImage(imageSrc);
+
+        updateGenerateStatus(false, 'Generate', 'Generate success')
+    }
+
+    function postGenerateError() {
+        updateGenerateStatus(false, 'Generate', 'Generate failed')
+    }
 
     const handleGenerate = () => {
         if (!img2imgInputImage) {
@@ -111,32 +130,7 @@ function Img2ImgTab() {
 
         const payload = buildPayload(prompt, negativePrompt, width, height, null, null, prepareImage(img2imgInputImage), prepareImage(maskImage), imageFidelity, "i2i");
 
-        try {
-            fetch('http://127.0.0.1:7861/sdapi/v1/img2img', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: payload
-            })
-                .then(response => response.json())
-                .then(data => {
-                    const base64Image = data.images[0];
-                    const imageSrc = `data:image/jpeg;base64,${base64Image}`;
-                    setImg2imgOutputImage(imageSrc);
-
-                    setIsGenerating(false);
-                    setGenerateButtonText('Generate');
-                })
-                .catch(error => {
-                    console.error("Error sending data:", error);
-                    setIsGenerating(false);
-                    setGenerateButtonText('Generate');
-                });
-        } catch (error) {
-            console.error(error);
-            alert('Error: ' + error.message);
-        }
+        sendRequest('http://127.0.0.1:7861/sdapi/v1/img2img', 'POST', payload, postGenerateSuccess, postGenerateError)
     };
 
     if (!isCVReady) {
@@ -145,42 +139,17 @@ function Img2ImgTab() {
 
     const cv = window.cv;
 
-    function createMask(event, setMaskImageBase64) {
-        if (!img2imgInputImage) {
-            alert('Please upload an image first.');
-            return;
-        }
-
-        const imgElement = document.createElement('img');
-        imgElement.src = img2imgInputImage;
-
-        imgElement.onload = () => {
-            processMaskImage(cv, imgElement).then(dataUrl => {
-                setMaskImage(dataUrl);
-            });
-        };
-    }
-
     return (
         <Box sx={{display: 'flex', gap: 2}}>
             <Box sx={{flex: 1, display: 'flex', flexDirection: 'column', gap: 2}}>
                 <Box sx={{display: 'flex', gap: 2}}>
                     <div style={{width: '50%'}}>
                         <InputPanel inputImage={img2imgInputImage} setInputImage={setImg2imgInputImage}
-                                    setHeight={setHeight} setWidth={setWidth}/>
+                                    setHeight={setHeight} setWidth={setWidth} label="Input Image"/>
                     </div>
                     <div style={{width: '50%'}}>
-                        <Typography variant="h6">Mask Image</Typography>
-                        <input
-                            type="file"
-                            onChange={(e) => handleMaskImageChange(e, setMaskImage)}
-                            style={{display: 'block', marginBottom: 8}}
-                        />
-                        {maskImage && <img src={maskImage} alt="Mask" style={{width: '100%', height: 'auto'}}/>}
-                        <Box sx={{display: 'flex', justifyContent: 'space-between', marginTop: 1}}>
-                            <Button variant="outlined"
-                                    onClick={(e) => createMask(e, setMaskImage)}>Create</Button>
-                        </Box>
+                        <MaskPanel maskImage={maskImage} inputImage={img2imgInputImage} setMaskImage={setMaskImage}
+                                   cv={cv} handleMaskImageChange={handleMaskImageChange}/>
                     </div>
                 </Box>
                 <div>
@@ -212,28 +181,9 @@ function Img2ImgTab() {
                                 prompt={prompt} setPrompt={setPrompt} negativePrompt={negativePrompt}
                                 setNegativePrompt={setNegativePrompt}/>
 
-                <Box sx={{display: 'flex', alignItems: 'center', gap: 2}}>
-                    <Typography>Image Fidelity</Typography>
-                    <Slider
-                        value={imageFidelity}
-                        onChange={(e, newValue) => setImageFidelity(newValue)}
-                        step={0.01}
-                        min={0}
-                        max={1}
-                        valueLabelDisplay="auto"
-                    />
-                </Box>
-                <Box sx={{display: 'flex', alignItems: 'center', gap: 2}}>
-                    <Typography>Anytest Fidelity</Typography>
-                    <Slider
-                        value={anytestFidelity}
-                        onChange={(e, newValue) => setAnytestFidelity(newValue)}
-                        step={0.01}
-                        min={0.35}
-                        max={1.25}
-                        valueLabelDisplay="auto"
-                    />
-                </Box>
+                <Img2ImgConfigPanel imageFidelity={imageFidelity} setImageFidelity={setImageFidelity}
+                                    anytestFidelity={anytestFidelity} setAnytestFidelity={setAnytestFidelity}/>
+
                 <Button variant="outlined" onClick={handleGenerate} style={{marginTop: 8}} disabled={isGenerating}>
                     {generateButtonText}
                 </Button>

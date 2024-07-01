@@ -72,27 +72,27 @@ function prepareImage(image) {
 }
 
 function baseGeneration(size, color) {
-    // 创建一个 canvas 元素
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    const canvas = new fabric.StaticCanvas(null, {width: size[0], height: size[1]});
 
-    // 设置 canvas 尺寸
-    canvas.width = size[0];
-    canvas.height = size[1];
-
-    // 确定填充颜色
     let fill;
+
     if (color.length === 3) {
         fill = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
     } else {
         fill = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3] / 255})`;
     }
 
-    // 填充 canvas
-    ctx.fillStyle = fill;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const rect = new fabric.Rect({
+        left: 0,
+        top: 0,
+        fill: fill,
+        width: size[0],
+        height: size[1]
+    });
 
-    // 返回图像的 Base64 编码数据 URL
+    canvas.add(rect);
+    canvas.renderAll();
+
     return canvas.toDataURL();
 }
 

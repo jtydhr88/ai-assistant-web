@@ -3,10 +3,12 @@ import {Box, Button, Slider, Typography} from '@mui/material';
 import {useImages} from '../ImageContext';
 import ProgressIndicator from '../components/ProgressIndicator';
 import PromptAnalyzer from '../components/PromptAnalyzer';
-import {executePrompt, removeColor, removeDuplicates} from "../utils/PromptUtils";
+import {buildControlNetArgs, executePrompt, removeColor, removeDuplicates} from "../utils/PromptUtils";
 import {baseGeneration, makeBaseImage, prepareImage, resizeImageAspectRatio} from "../utils/ImgUtils";
 import OutputPanel from "../components/OutputPanel";
 import InputPanel from "../components/InputPanel";
+import LineartConfigPanel from "../components/LineartConfigPanel";
+import {sendRequest} from "../utils/RequestApi";
 
 function LineDrawingCutoutTab() {
 
@@ -89,6 +91,20 @@ function LineDrawingCutoutTab() {
         }
     }
 
+    function postGenerateSuccess(data) {
+        const base64Image = data.images[0];
+        const imageSrc = `data:image/jpeg;base64,${base64Image}`;
+        setLineDrawingCutoutOutputImage(imageSrc);
+
+        setIsGenerating(false);
+        setGenerateButtonText('Generate');
+    }
+
+    function postGenerateError() {
+        setIsGenerating(false);
+        setGenerateButtonText('Generate');
+    }
+
     const handleGenerate = async () => {
         if (!lineDrawingCutoutInputImage) {
             alert('Please upload an image first.');
@@ -119,7 +135,9 @@ function LineDrawingCutoutTab() {
 
         const imageFidelity = 1.0;
 
-        const cn_args = makeCNArgs(prepareImage(flatLineImage), linearFidelity);
+        const cn_args = [
+            buildControlNetArgs(prepareImage(flatLineImage), linearFidelity, "controlnet852A_veryhard [8a1dc920]")
+        ]
 
         const override_settings = {};
         override_settings["CLIP_stop_at_last_layers"] = 2
@@ -145,52 +163,8 @@ function LineDrawingCutoutTab() {
             payload["alwayson_scripts"] = {"ControlNet": {"args": cn_args}}
         }
 
-        try {
-            fetch('http://127.0.0.1:7861/sdapi/v1/img2img', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            })
-                .then(response => response.json())
-                .then(data => {
-                    const base64Image = data.images[0];
-                    const imageSrc = `data:image/jpeg;base64,${base64Image}`;
-                    setLineDrawingCutoutOutputImage(imageSrc);
-
-                    setIsGenerating(false);
-                    setGenerateButtonText('Generate');
-                })
-                .catch(error => {
-                    console.error("Error sending data:", error);
-                    setIsGenerating(false);
-                    setGenerateButtonText('Generate');
-                });
-        } catch (error) {
-            console.error(error);
-            alert('Error: ' + error.message);
-        }
+        sendRequest('http://127.0.0.1:7861/sdapi/v1/img2img', 'POST', JSON.stringify(payload), postGenerateSuccess, postGenerateError)
     };
-
-    function makeCNArgs(flatLineImage, lineDrawingCutoutFidelity) {
-        const unit1 = {
-            "image": flatLineImage,
-            "control_mode": "Balanced",
-            "enabled": "True",
-            "guidance_end": 1,
-            "guidance_start": 0,
-            "pixel_perfect": "True",
-            "processor_res": 512,
-            "resize_mode": "Just Resize",
-            "weight": lineDrawingCutoutFidelity,
-            "module": "None",
-            "model": "controlnet852A_veryhard [8a1dc920]",
-            "hr_option": "Both"
-        };
-
-        return [unit1]
-    }
 
     return (
         <Box sx={{display: 'flex', gap: 2}}>
@@ -200,7 +174,7 @@ function LineDrawingCutoutTab() {
                         <InputPanel inputImage={lineDrawingCutoutInputImage}
                                     setInputImage={setLineDrawingCutoutInputImage}
                                     setHeight={setHeight} setWidth={setWidth}
-                                    postProcess={processFlatLine}
+                                    postProcess={processFlatLine} label="Input Image"
                         />
                     </div>
                 </Box>
@@ -210,40 +184,18 @@ function LineDrawingCutoutTab() {
                     prompt={prompt} setPrompt={setPrompt} negativePrompt={negativePrompt}
                     setNegativePrompt={setNegativePrompt}/>
 
-                <Box sx={{display: 'flex', alignItems: 'center', gap: 2}}>
-                    <Typography>Linear Fidelity</Typography>
-                    <Slider
-                        value={linearFidelity}
-                        onChange={(e, newValue) => setLinearFidelity(newValue)}
-                        step={0.01}
-                        min={0.5}
-                        max={1.25}
-                        valueLabelDisplay="auto"
-                    />
-                </Box>
-                <Box sx={{display: 'flex', alignItems: 'center', gap: 2}}>
-                    <Typography>Linear Bold</Typography>
-                    <Slider
-                        value={linearBold}
-                        onChange={(e, newValue) => setLinearBold(newValue)}
-                        step={0.01}
-                        min={0}
-                        max={1}
-                        valueLabelDisplay="auto"
-                    />
-                </Box>
+                <LineartConfigPanel linearBold={linearBold} setLinearBold={setLinearBold}
+                                    linearFidelity={linearFidelity} setLinearFidelity={setLinearFidelity}/>
 
                 <Button variant="outlined" onClick={handleGenerate} style={{marginTop: 8}} disabled={isGenerating}>
                     {generateButtonText}
                 </Button>
 
-                <div>
-                    <ProgressIndicator
-                        progress={progressData.progress}
-                        currentStep={progressData.sampling_step}
-                        totalSteps={progressData.sampling_steps}
-                    />
-                </div>
+                <ProgressIndicator
+                    progress={progressData.progress}
+                    currentStep={progressData.sampling_step}
+                    totalSteps={progressData.sampling_steps}
+                />
             </Box>
 
             <OutputPanel outputImage={lineDrawingCutoutOutputImage}/>

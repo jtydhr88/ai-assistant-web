@@ -3,7 +3,7 @@ function buildPayload(prompt, nega, w, h, unit1, unit2, encodedBase, encodedMask
     if (mode === "i2i") {
         return JSON.stringify({
             'init_images': [encodedBase],
-            'denoising_strength': 1- imageFidelity,
+            'denoising_strength': 1 - imageFidelity,
             'prompt': prompt,
             'negative_prompt': nega,
             'seed': -1,
@@ -30,7 +30,7 @@ function buildPayload(prompt, nega, w, h, unit1, unit2, encodedBase, encodedMask
             cfg_scale: 7,
             width: w,
             height: h,
-            alwayson_scripts: { "ControlNet": { args: [unit1] } },
+            alwayson_scripts: {"ControlNet": {args: [unit1]}},
         };
     } else if (mode === "anime_shadow") {
         return {
@@ -44,9 +44,33 @@ function buildPayload(prompt, nega, w, h, unit1, unit2, encodedBase, encodedMask
             cfg_scale: 7,
             width: w,
             height: h,
-            alwayson_scripts: { "ControlNet": { args: [unit1, unit2] } },
+            alwayson_scripts: {"ControlNet": {args: [unit1, unit2]}},
         };
     }
 }
 
-export { buildPayload };
+function sendRequest(url, method, payload, postSuccess, postError) {
+    try {
+        fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: payload
+        })
+            .then(response => response.json())
+            .then(data => {
+                postSuccess(data);
+            })
+            .catch(error => {
+                console.error("Error sending data:", error);
+                postError(error);
+            });
+    } catch (error) {
+        console.error(error);
+
+        alert('Error: ' + error.message);
+    }
+}
+
+export {buildPayload, sendRequest};

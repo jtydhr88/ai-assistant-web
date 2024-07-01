@@ -46,4 +46,39 @@ function executePrompt(executeTags, basePrompt) {
     return filteredTags.join(", ");
 }
 
-export {removeDuplicates, removeColor, executePrompt};
+function buildControlNetArgs(image, weight, model, guidanceStart, guidanceEnd, module, thresholdA) {
+    const unit = {
+        "image": image,
+        "control_mode": "Balanced",
+        "enabled": "True",
+        "pixel_perfect": "True",
+        "processor_res": 512,
+        "resize_mode": "Just Resize",
+        "weight": weight,
+        "model": model,
+        "hr_option": "Both"
+    };
+
+    unit["guidance_start"] = 0;
+
+    if (guidanceStart) {
+        unit["guidance_start"] = guidanceStart;
+    }
+
+    unit["guidance_end"] = 1;
+
+    if (guidanceEnd) {
+        unit["guidance_end"] = guidanceEnd;
+    }
+
+    if (thresholdA) {
+        unit["threshold_a"] = thresholdA;
+    }
+
+    if (model) {
+        unit["module"] = module;
+    }
+    return unit;
+}
+
+export {removeDuplicates, removeColor, executePrompt, buildControlNetArgs};

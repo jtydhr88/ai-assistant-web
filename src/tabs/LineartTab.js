@@ -1,23 +1,22 @@
 import React, {useState, useEffect} from 'react';
 import {Box, Button, TextField, Slider, Typography} from '@mui/material';
 import {useImages} from '../ImageContext';
-import {buildPayload} from "../utils/RequestApi";
+import {buildPayload, sendRequest} from "../utils/RequestApi";
 import ProgressIndicator from '../components/ProgressIndicator';
 import PromptAnalyzer from '../components/PromptAnalyzer';
 import {processCannyImage} from "../utils/OpenCVUtils";
-import {executePrompt, removeColor, removeDuplicates} from "../utils/PromptUtils";
+import {buildControlNetArgs, executePrompt, removeColor, removeDuplicates} from "../utils/PromptUtils";
 import {baseGeneration, makeBaseImage, prepareImage, resizeImageAspectRatio} from "../utils/ImgUtils";
 import OutputPanel from "../components/OutputPanel";
 import InputPanel from "../components/InputPanel";
+import CannyPanel from "../components/CannyPanel";
+import LineartConfigPanel from "../components/LineartConfigPanel";
 
 function LineartTab() {
     const [isCVReady, setCVReady] = useState(false);
 
     const {
-        lineartInputImage, setLineartInputImage,
-        cannyImage, setCannyImage,
-        lineartOutputImage,
-        setLineartOutputImage,
+        lineartInputImage, setLineartInputImage, cannyImage, setCannyImage, lineartOutputImage, setLineartOutputImage,
     } = useImages();
 
     const [isGenerating, setIsGenerating] = useState(false);
@@ -69,16 +68,13 @@ function LineartTab() {
     const [width, setWidth] = useState(null);
     const [height, setHeight] = useState(null);
     const [negativePrompt, setNegativePrompt] = useState('lowres, error, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, blurry');
-    const [cannyThreshold1, setCannyThreshold1] = useState(20);
-    const [cannyThreshold2, setCannyThreshold2] = useState(120);
+
     const [linearFidelity, setLinearFidelity] = useState(1);
     const [linearBold, setLinearBold] = useState(0);
     const [generateButtonText, setGenerateButtonText] = useState('Generate');
 
     const [progressData, setProgressData] = useState({
-        progress: 0,
-        sampling_step: 0,
-        sampling_steps: 0
+        progress: 0, sampling_step: 0, sampling_steps: 0
     });
 
     const handleImageChange = (event, setLineartImage, setLineartImageBase64) => {
@@ -101,6 +97,20 @@ function LineartTab() {
             reader.readAsDataURL(file);
         }
     };
+
+    function postGenerateSuccess(data) {
+        const base64Image = data.images[0];
+        const imageSrc = `data:image/jpeg;base64,${base64Image}`;
+        setLineartOutputImage(imageSrc);
+
+        setIsGenerating(false);
+        setGenerateButtonText('Generate');
+    }
+
+    function postGenerateError() {
+        setIsGenerating(false);
+        setGenerateButtonText('Generate');
+    }
 
     const handleGenerate = async () => {
         if (!lineartInputImage) {
@@ -132,7 +142,9 @@ function LineartTab() {
 
         const imageFidelity = 1.0;
 
-        const cn_args = makeCNArgs(prepareImage(cannyImage), linearFidelity);
+        const cn_args = [
+            buildControlNetArgs(prepareImage(cannyImage), linearFidelity, "control-lora-canny-rank256 [ec2dbbe4]")
+        ]
 
         const override_settings = {};
         override_settings["CLIP_stop_at_last_layers"] = 2
@@ -158,52 +170,8 @@ function LineartTab() {
             payload["alwayson_scripts"] = {"ControlNet": {"args": cn_args}}
         }
 
-        try {
-            fetch('http://127.0.0.1:7861/sdapi/v1/img2img', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            })
-                .then(response => response.json())
-                .then(data => {
-                    const base64Image = data.images[0];
-                    const imageSrc = `data:image/jpeg;base64,${base64Image}`;
-                    setLineartOutputImage(imageSrc);
-
-                    setIsGenerating(false);
-                    setGenerateButtonText('Generate');
-                })
-                .catch(error => {
-                    console.error("Error sending data:", error);
-                    setIsGenerating(false);
-                    setGenerateButtonText('Generate');
-                });
-        } catch (error) {
-            console.error(error);
-            alert('Error: ' + error.message);
-        }
+        sendRequest('http://127.0.0.1:7861/sdapi/v1/img2img', 'POST', JSON.stringify(payload), postGenerateSuccess, postGenerateError)
     };
-
-    function makeCNArgs(cannyImage, lineartFidelity) {
-        const unit1 = {
-            "image": cannyImage,
-            "control_mode": "Balanced",
-            "enabled": "True",
-            "guidance_end": 1,
-            "guidance_start": 0,
-            "pixel_perfect": "True",
-            "processor_res": 512,
-            "resize_mode": "Just Resize",
-            "weight": lineartFidelity,
-            "module": "None",
-            "model": "control-lora-canny-rank256 [ec2dbbe4]",
-            "hr_option": "Both"
-        };
-
-        return [unit1]
-    }
 
     if (!isCVReady) {
         return <div>Loading OpenCV...</div>;
@@ -211,63 +179,16 @@ function LineartTab() {
 
     const cv = window.cv;
 
-    function createCanny(event, cannyThreshold1, cannyThreshold2, setCannyImageBase64) {
-        if (!lineartInputImage) {
-            alert('Please upload an image first.');
-            return;
-        }
-
-        const imgElement = document.createElement('img');
-        imgElement.src = lineartInputImage;
-
-        imgElement.onload = () => {
-            processCannyImage(cv, imgElement, cannyThreshold1, cannyThreshold2).then(dataUrl => {
-                const base64String = dataUrl.replace('data:', '').replace(/^.+,/, '');
-
-                setCannyImageBase64(base64String);
-
-                setCannyImage(dataUrl);
-            });
-        };
-    }
-
-    return (
-        <Box sx={{display: 'flex', gap: 2}}>
+    return (<Box sx={{display: 'flex', gap: 2}}>
             <Box sx={{flex: 1, display: 'flex', flexDirection: 'column', gap: 2}}>
                 <Box sx={{display: 'flex', gap: 2}}>
                     <div style={{width: '50%'}}>
                         <InputPanel inputImage={lineartInputImage} setInputImage={setLineartInputImage}
-                                    setHeight={setHeight} setWidth={setWidth}/>
+                                    setHeight={setHeight} setWidth={setWidth} label="Input Image"/>
                     </div>
                     <div style={{width: '50%'}}>
-                        <Typography variant="h6">Canny Image</Typography>
-                        {cannyImage && <img src={cannyImage} alt="Canny" style={{width: '100%', height: 'auto'}}/>}
-                        <Box sx={{display: 'flex', alignItems: 'center', gap: 2}}>
-                            <Typography>Canny Threshold1</Typography>
-                            <Slider
-                                value={cannyThreshold1}
-                                onChange={(e, newValue) => setCannyThreshold1(newValue)}
-                                step={1}
-                                min={0}
-                                max={253}
-                                valueLabelDisplay="auto"
-                            />
-                        </Box>
-                        <Box sx={{display: 'flex', alignItems: 'center', gap: 2}}>
-                            <Typography>Canny Threshold2</Typography>
-                            <Slider
-                                value={cannyThreshold2}
-                                onChange={(e, newValue) => setCannyThreshold2(newValue)}
-                                step={1}
-                                min={0}
-                                max={254}
-                                valueLabelDisplay="auto"
-                            />
-                        </Box>
-                        <Box sx={{display: 'flex', justifyContent: 'space-between', marginTop: 1}}>
-                            <Button variant="outlined"
-                                    onClick={(e) => createCanny(e, cannyThreshold1, cannyThreshold2)}>Create</Button>
-                        </Box>
+                        <CannyPanel cv={cv} inputImage={lineartInputImage} cannyImage={cannyImage}
+                                    setCannyImage={setCannyImage}/>
                     </div>
                 </Box>
 
@@ -275,28 +196,8 @@ function LineartTab() {
                                 prompt={prompt} setPrompt={setPrompt} negativePrompt={negativePrompt}
                                 setNegativePrompt={setNegativePrompt}/>
 
-                <Box sx={{display: 'flex', alignItems: 'center', gap: 2}}>
-                    <Typography>Linear Fidelity</Typography>
-                    <Slider
-                        value={linearFidelity}
-                        onChange={(e, newValue) => setLinearFidelity(newValue)}
-                        step={0.01}
-                        min={0.5}
-                        max={1.25}
-                        valueLabelDisplay="auto"
-                    />
-                </Box>
-                <Box sx={{display: 'flex', alignItems: 'center', gap: 2}}>
-                    <Typography>Linear Bold</Typography>
-                    <Slider
-                        value={linearBold}
-                        onChange={(e, newValue) => setLinearBold(newValue)}
-                        step={0.01}
-                        min={0}
-                        max={1}
-                        valueLabelDisplay="auto"
-                    />
-                </Box>
+                <LineartConfigPanel linearBold={linearBold} setLinearBold={setLinearBold}
+                                    linearFidelity={linearFidelity} setLinearFidelity={setLinearFidelity}/>
 
                 <Button variant="outlined" onClick={handleGenerate} style={{marginTop: 8}} disabled={isGenerating}>
                     {generateButtonText}
@@ -309,9 +210,8 @@ function LineartTab() {
                     />
                 </div>
             </Box>
-            <OutputPanel outputImage={lineartOutputImage} />
-        </Box>
-    );
+            <OutputPanel outputImage={lineartOutputImage}/>
+        </Box>);
 }
 
 export default LineartTab;

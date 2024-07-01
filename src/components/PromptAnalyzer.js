@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Box, Button, TextField, Typography} from "@mui/material";
+import {Button, TextField} from "@mui/material";
 import {prepareImage} from "../utils/ImgUtils";
 
 function PromptAnalyzer({inputImage, prompt, setPrompt, negativePrompt, setNegativePrompt}) {
