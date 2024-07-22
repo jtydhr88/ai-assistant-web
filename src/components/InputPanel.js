@@ -1,46 +1,57 @@
-import React from 'react';
-import {Typography} from '@mui/material';
+import React from "react";
+import { Typography } from "@mui/material";
+import Box from "@mui/material/Box";
+import PropTypes from "prop-types";
+import { useIntl } from "react-intl";
 
-function InputPanel({inputImage, setInputImage, setWidth, setHeight, postProcess, label}) {
+function InputPanel({
+  inputImage,
+  handleImageChange,
+  setInputImage,
+  setWidth,
+  setHeight,
+  postProcess,
+  postProcessSuccess,
+  postProcessError,
+  label,
+}) {
+  const intl = useIntl();
 
-    const handleImageChange = (event, setImage, setWidth, setHeight) => {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImage(reader.result);
-
-                if (postProcess) {
-                    postProcess(reader.result);
-                }
-
-                const img = new Image();
-
-                img.onload = () => {
-                    console.log("Width:", img.width, "Height:", img.height);
-                    setWidth(img.width);
-
-                    setHeight(img.height);
-                };
-
-                img.src = reader.result;
-            };
-            reader.readAsDataURL(file);
+  return (
+    <Box m={2}>
+      <Typography variant="h6">
+        {intl.formatMessage({ id: label, defaultMessage: label })}
+      </Typography>
+      <input
+        type="file"
+        onChange={(event) =>
+          handleImageChange(
+            event.target.files[0],
+            setInputImage,
+            setWidth,
+            setHeight,
+            postProcess,
+            postProcessSuccess,
+            postProcessError
+          )
         }
-    };
-
-    return (
-        <div>
-            <Typography variant="h6">{label}</Typography>
-            <input
-                type="file"
-                onChange={(e) => handleImageChange(e, setInputImage, setWidth, setHeight)}
-                style={{display: 'block', marginBottom: 8}}
-            />
-            {inputImage &&
-                <img src={inputImage} alt="Input" style={{width: '100%', height: 'auto'}}/>}
-        </div>
-    );
+        style={{ display: "block", marginBottom: 8 }}
+      />
+      {inputImage && <img src={inputImage} alt="Input" style={{ width: "100%", height: "auto" }} />}
+    </Box>
+  );
 }
+
+InputPanel.propTypes = {
+  inputImage: PropTypes.string,
+  handleImageChange: PropTypes.func,
+  setInputImage: PropTypes.func,
+  setWidth: PropTypes.func,
+  setHeight: PropTypes.func,
+  postProcess: PropTypes.func,
+  postProcessSuccess: PropTypes.func,
+  postProcessError: PropTypes.func,
+  label: PropTypes.string,
+};
 
 export default InputPanel;
