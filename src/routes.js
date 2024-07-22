@@ -48,7 +48,7 @@ import Normal from "./layouts/sections/page-sections/normal";
 import Light from "./layouts/sections/page-sections/light";
 import AnimeShadow from "./layouts/sections/page-sections/anime-shadow";
 import Resize from "./layouts/sections/page-sections/resize";
-import LineartTransparent from "./layouts/sections/page-sections/line-drawing-transparent";
+import LineDrawingTransparent from "./layouts/sections/page-sections/line-drawing-transparent";
 import ColorScheme from "./layouts/sections/page-sections/color-scheme";
 import ObjectRemover from "./layouts/sections/page-sections/object-remover";
 import BackgroundRemover from "./layouts/sections/page-sections/background-remover";
@@ -66,7 +66,7 @@ const routes = [
     rowsPerColumn: 2,
   },
   {
-    name: "lineDrawing",
+    name: "line-drawing",
     icon: <Icon>gesture</Icon>,
     collapse: [
       {
@@ -130,7 +130,7 @@ const routes = [
       {
         name: "line-drawing-transparent",
         route: "/sections/page-sections/line-drawing-transparent",
-        component: <LineartTransparent />,
+        component: <LineDrawingTransparent />,
       },
       {
         name: "positive-negative-shape",

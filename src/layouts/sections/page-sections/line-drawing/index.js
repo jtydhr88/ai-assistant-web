@@ -150,13 +150,18 @@ function LineDrawing() {
 
   return (
     <BaseLayout
-      title={intl.formatMessage({ id: "lineDrawing", defaultMessage: "LineDrawing" })}
+      title={intl.formatMessage({ id: "line-drawing", defaultMessage: "Line Drawing" })}
       breadcrumb={[
         {
-          label: intl.formatMessage({ id: "lineDrawing", defaultMessage: "LineDrawing" }),
-          route: "/sections/page-sections/lineDrawing",
+          label: intl.formatMessage({ id: "line-drawing", defaultMessage: "Line Drawing" }),
+          route: "/sections/page-sections/line-drawing",
         },
-        { label: intl.formatMessage({ id: "lineDrawing1", defaultMessage: "LineDrawing" }) },
+        {
+          label: intl.formatMessage({
+            id: "line-drawing",
+            defaultMessage: "Line Drawing",
+          }),
+        },
       ]}
     >
       <Grid container spacing={2}>
@@ -256,7 +261,7 @@ function LineDrawing() {
                   <TransferPanel
                     outputImage={lineDrawingOutputImage}
                     targetTabInputSetter={setLineDrawingCutoutInputImage}
-                    label={"transfer-to-lineDrawing2-tab"}
+                    label={"transfer-to-line-drawing-cutout-tab"}
                     targetLink={"/sections/page-sections/line-drawing-cutout"}
                   />
                   <TransferPanel

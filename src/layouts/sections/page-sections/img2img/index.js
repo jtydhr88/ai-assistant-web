@@ -232,7 +232,7 @@ function Img2Img() {
                 <TransferPanel
                   outputImage={img2imgOutputImage}
                   targetTabInputSetter={setLineDrawingInputImage}
-                  label={"transfer-to-lineart-tab"}
+                  label={"transfer-to-line-drawing-tab"}
                   targetLink={"/sections/page-sections/line-drawing"}
                 />
               )}

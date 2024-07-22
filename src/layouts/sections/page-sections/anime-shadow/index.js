@@ -230,7 +230,7 @@ function AnimeShadow() {
                       setInputImage={setAnimeShadowLineDrawingInputImage}
                       setHeight={setHeight}
                       setWidth={setWidth}
-                      label="lineDrawing-input-image"
+                      label="line-drawing-input-image"
                       postProcess={processInvert}
                       postProcessSuccess={setAnimeShadowInvertImage}
                     />

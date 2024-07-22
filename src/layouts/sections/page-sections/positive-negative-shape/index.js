@@ -117,7 +117,7 @@ function LineartTransparent() {
       })}
       breadcrumb={[
         {
-          label: intl.formatMessage({ id: "color", defaultMessage: "Color" }),
+          label: intl.formatMessage({ id: "tools", defaultMessage: "Tools" }),
           route: "/sections/page-sections/positive-negative-shape",
         },
         {

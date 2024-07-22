@@ -17,21 +17,23 @@ function AnimeShadowConfigPanel({ animeShadowType, setAnimeShadowType }) {
           {intl.formatMessage({ id: "anime-shadow-type", defaultMessage: "Anime Shadow Type" })}
         </FormLabel>
         <RadioGroup value={animeShadowType} onChange={handleChange}>
-          <FormControlLabel
-            value="anime01"
-            control={<Radio />}
-            label={intl.formatMessage({ id: "anime01", defaultMessage: "anime01" })}
-          />
-          <FormControlLabel
-            value="anime02"
-            control={<Radio />}
-            label={intl.formatMessage({ id: "anime02", defaultMessage: "anime02" })}
-          />
-          <FormControlLabel
-            value="anime03"
-            control={<Radio />}
-            label={intl.formatMessage({ id: "anime03", defaultMessage: "anime03" })}
-          />
+          <Box display="flex" flexDirection="row" flexWrap="wrap">
+            <FormControlLabel
+              value="anime01"
+              control={<Radio />}
+              label={intl.formatMessage({ id: "anime01", defaultMessage: "anime01" })}
+            />
+            <FormControlLabel
+              value="anime02"
+              control={<Radio />}
+              label={intl.formatMessage({ id: "anime02", defaultMessage: "anime02" })}
+            />
+            <FormControlLabel
+              value="anime03"
+              control={<Radio />}
+              label={intl.formatMessage({ id: "anime03", defaultMessage: "anime03" })}
+            />
+          </Box>
         </RadioGroup>
       </FormControl>
     </Box>

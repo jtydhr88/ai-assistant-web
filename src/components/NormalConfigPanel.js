@@ -8,7 +8,10 @@ function NormalConfigPanel({ linearFidelity, setLinearFidelity }) {
   return (
     <Box m={2}>
       <Typography>
-        {intl.formatMessage({ id: "lineart-fidelity", defaultMessage: "Linear Fidelity" })}
+        {intl.formatMessage({
+          id: "line-drawing-fidelity",
+          defaultMessage: "Line-drawing Fidelity",
+        })}
       </Typography>
       <Slider
         value={linearFidelity}

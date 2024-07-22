@@ -112,18 +112,18 @@ function LineDrawingTransparent() {
   return (
     <BaseLayout
       title={intl.formatMessage({
-        id: "lineDrawing-transparent",
-        defaultMessage: "LineDrawing Transparent",
+        id: "line-drawing-transparent",
+        defaultMessage: "Line Drawing Transparent",
       })}
       breadcrumb={[
         {
           label: intl.formatMessage({ id: "tools", defaultMessage: "Tools" }),
-          route: "/sections/page-sections/lineDrawing-transparent",
+          route: "/sections/page-sections/line-drawing-transparent",
         },
         {
           label: intl.formatMessage({
-            id: "lineDrawing-transparent",
-            defaultMessage: "LineDrawing Transparent",
+            id: "line-drawing-transparent",
+            defaultMessage: "Line Drawing Transparent",
           }),
         },
       ]}
@@ -144,7 +144,6 @@ function LineDrawingTransparent() {
                       label="input-image"
                     />
                   </Grid>
-                  <Grid item xs={6}></Grid>
                 </Grid>
               </CardContent>
             </Card>
