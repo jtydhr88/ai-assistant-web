@@ -14,7 +14,7 @@ Run by nodejs directly.
 ```commandline
 --cors-allow-origins "http://127.0.0.1:7860,http://localhost:3000"
 ```
-6. open localhost:8080
+6. open localhost:3000
 
 ### Method2
 Run within AI Assistant.
